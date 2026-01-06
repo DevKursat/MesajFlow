@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: mesajflow-worker
+    runtime: node
+    buildCommand: npm install
+    startCommand: node whatsapp-worker.js
+    plan: free
+    envVars:
+      - key: SUPABASE_URL
+        value: https://wtpfwwgtofpybomfmhnk.supabase.co
+      - key: SUPABASE_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+    healthCheckPath: /health
