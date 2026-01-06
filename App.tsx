@@ -17,6 +17,7 @@ import OrdersView from './components/OrdersView';
 import MenuView from './components/MenuView';
 import ProductsView from './components/ProductsView';
 import CustomersView from './components/CustomersView';
+import ImportView from './components/ImportView';
 import ErrorBoundary from './components/ErrorBoundary';
 import Toast, { ToastType } from './components/Toast';
 import { fetchTransactions, fetchAiSettings, subscribeToTable, logError, initializeSettings, SUPABASE_SQL_SETUP, loginBusiness, registerBusiness } from './services/supabaseService';
@@ -367,11 +368,13 @@ const App: React.FC = () => {
   const restaurantMenuItems: typeof baseMenuItems = [
     { id: 'orders', label: 'Siparişler', icon: <UtensilsCrossed size={20} /> },
     { id: 'menu', label: 'Menü Yönetimi', icon: <UtensilsCrossed size={20} /> },
+    { id: 'import', label: 'AI Menü Import', icon: <Bot size={20} /> },
   ];
 
   const ecommerceMenuItems: typeof baseMenuItems = [
     { id: 'orders', label: 'Siparişler', icon: <ShoppingBag size={20} /> },
     { id: 'products', label: 'Ürün Yönetimi', icon: <Store size={20} /> },
+    { id: 'import', label: 'AI Ürün Import', icon: <Bot size={20} /> },
   ];
 
   const commonEndMenuItems: typeof baseMenuItems = [
@@ -460,6 +463,7 @@ const App: React.FC = () => {
             {activeTab === 'orders' && <OrdersView businessId={businessId} businessType={businessType} showToast={showToast} />}
             {activeTab === 'menu' && <MenuView businessId={businessId} showToast={showToast} />}
             {activeTab === 'products' && <ProductsView businessId={businessId} showToast={showToast} />}
+            {activeTab === 'import' && <ImportView businessId={businessId} businessType={businessType} showToast={showToast} />}
             {activeTab === 'history' && <HistoryView />}
             {activeTab === 'settings' && <SettingsView />}
             {activeTab === 'connections' && <ConnectionsView />}
