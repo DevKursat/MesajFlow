@@ -1,4 +1,4 @@
-
+ 
 import React, { useState, useEffect } from 'react';
 import { Save, Lock, Bot, Terminal, Cpu, MessageSquare, AlertTriangle, RefreshCw } from 'lucide-react';
 import { AiSettings, AiTone } from '../types';
@@ -18,7 +18,7 @@ const SettingsView: React.FC = () => {
     setSaving(true);
     const update = { ...settings };
     if (newPass) update.system_password = newPass;
-    await updateAiSettings(update);
+    await updateAiSettings(settings.id, update);
     setNewPass('');
     setSaving(false);
   };
@@ -78,8 +78,8 @@ const SettingsView: React.FC = () => {
                       key={tone}
                       onClick={() => setSettings({ ...settings, tone })}
                       className={`w-full py-5 px-6 rounded-2xl font-black tracking-wider border-2 transition-all duration-300 ${isSelected
-                          ? `bg-${config.color}-500 text-black border-${config.color}-500 shadow-lg shadow-${config.color}-500/30`
-                          : 'bg-black/30 border-white/10 text-zinc-400 hover:border-white/30 hover:text-zinc-200'
+                        ? `bg-${config.color}-500 text-black border-${config.color}-500 shadow-lg shadow-${config.color}-500/30`
+                        : 'bg-black/30 border-white/10 text-zinc-400 hover:border-white/30 hover:text-zinc-200'
                         }`}
                       style={isSelected ? {
                         backgroundColor: config.color === 'emerald' ? '#10b981' :

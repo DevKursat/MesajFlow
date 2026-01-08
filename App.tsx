@@ -1,5 +1,5 @@
 
-// MesajFlow - WhatsApp & Telegram AI Bot SaaS for Restaurants & E-commerce
+// Aura - WhatsApp & Telegram AI Bot SaaS for Restaurants & E-commerce
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   LayoutDashboard, Settings, QrCode, History,
@@ -77,10 +77,10 @@ const LoginView: React.FC<{ onLogin: (settings: AiSettings) => void, showToast: 
       const settings = await loginBusiness(businessName.trim(), pass);
 
       if (settings) {
-        localStorage.setItem('mesajflow_auth', 'true');
-        localStorage.setItem('mesajflow_business_id', settings.id);
-        localStorage.setItem('mesajflow_business_type', settings.business_type);
-        localStorage.setItem('mesajflow_business_name', settings.business_name);
+        localStorage.setItem('aura_auth', 'true');
+        localStorage.setItem('aura_business_id', settings.id);
+        localStorage.setItem('aura_business_type', settings.business_type);
+        localStorage.setItem('aura_business_name', settings.business_name);
         showToast(`Hoş geldiniz, ${settings.business_name}!`, "SUCCESS");
         onLogin(settings);
       } else {
@@ -124,7 +124,7 @@ const LoginView: React.FC<{ onLogin: (settings: AiSettings) => void, showToast: 
           <div className={`w-20 h-20 ${lockoutTime > 0 ? 'bg-rose-500/10 border-rose-500/20 text-rose-500' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500'} border rounded-3xl flex items-center justify-center mx-auto shadow-[0_0_30px_rgba(16,185,129,0.1)] transition-colors`}>
             {lockoutTime > 0 ? <AlertOctagon size={40} /> : <MessageCircle size={40} />}
           </div>
-          <h1 className="text-4xl font-black tracking-tighter text-white">Mesaj<span className={`${lockoutTime > 0 ? 'text-rose-500' : 'text-emerald-500'} transition-colors`}>Flow</span></h1>
+          <h1 className="text-4xl font-black tracking-tighter text-white">Au<span className={`${lockoutTime > 0 ? 'text-rose-500' : 'text-emerald-500'} transition-colors`}>ra</span></h1>
           <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-[0.3em]">İşletme Girişi</p>
         </div>
 
@@ -230,7 +230,7 @@ const BossLoginView: React.FC<{ onLogin: () => void, showToast: (msg: string, ty
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (pass === BOSS_PASSWORD) {
-      localStorage.setItem('mesajflow_boss_auth', 'true');
+      localStorage.setItem('aura_boss_auth', 'true');
       showToast('Boss Panel erişimi sağlandı!', 'SUCCESS');
       onLogin();
     } else {
@@ -277,15 +277,15 @@ const BossLoginView: React.FC<{ onLogin: () => void, showToast: (msg: string, ty
 const App: React.FC = () => {
   // /boss URL kontrolü
   const isBossRoute = window.location.pathname === '/boss';
-  const [bossAuthenticated, setBossAuthenticated] = useState(localStorage.getItem('mesajflow_boss_auth') === 'true');
+  const [bossAuthenticated, setBossAuthenticated] = useState(localStorage.getItem('aura_boss_auth') === 'true');
 
-  const [isAuthenticated, setIsAuthenticated] = useState(localStorage.getItem('mesajflow_auth') === 'true');
-  const [businessType, setBusinessType] = useState<BusinessType>((localStorage.getItem('mesajflow_business_type') as BusinessType) || 'RESTAURANT');
-  const [businessName, setBusinessName] = useState(localStorage.getItem('mesajflow_business_name') || 'İşletme');
+  const [isAuthenticated, setIsAuthenticated] = useState(localStorage.getItem('aura_auth') === 'true');
+  const [businessType, setBusinessType] = useState<BusinessType>((localStorage.getItem('aura_business_type') as BusinessType) || 'RESTAURANT');
+  const [businessName, setBusinessName] = useState(localStorage.getItem('aura_business_name') || 'İşletme');
   const [activeTab, setActiveTab] = useState('dashboard');
   const [unreadCount, setUnreadCount] = useState(0);
   const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
-  const [businessId, setBusinessId] = useState(localStorage.getItem('mesajflow_business_id') || '');
+  const [businessId, setBusinessId] = useState(localStorage.getItem('aura_business_id') || '');
 
   const showToast = useCallback((message: string, type: ToastType) => {
     setToast({ message, type });
@@ -296,7 +296,7 @@ const App: React.FC = () => {
     setBusinessType(settings.business_type);
     setBusinessName(settings.business_name);
     setBusinessId(settings.id);
-    localStorage.setItem('mesajflow_business_id', settings.id);
+    localStorage.setItem('aura_business_id', settings.id);
   };
 
   useEffect(() => {
@@ -337,7 +337,7 @@ const App: React.FC = () => {
             <div className="flex items-center justify-between mb-8">
               <h1 className="text-2xl font-black">Boss <span className="text-purple-500">Panel</span></h1>
               <button
-                onClick={() => { localStorage.removeItem('mesajflow_boss_auth'); window.location.href = '/'; }}
+                onClick={() => { localStorage.removeItem('aura_boss_auth'); window.location.href = '/'; }}
                 className="text-xs text-zinc-500 hover:text-white flex items-center gap-2"
               >
                 <LogOut size={14} /> Çıkış
@@ -392,7 +392,7 @@ const App: React.FC = () => {
       <div className="flex h-screen bg-[#050505] text-zinc-100 overflow-hidden font-['Inter']">
         <aside className="w-72 bg-[#0a0a0b] border-r border-white/5 flex flex-col shadow-2xl z-20">
           <div className="p-10">
-            <h2 className="text-3xl font-black tracking-tighter">Mesaj<span className="text-emerald-500">Flow</span></h2>
+            <h2 className="text-3xl font-black tracking-tighter">Au<span className="text-emerald-500">ra</span></h2>
             <div className="flex items-center gap-2 mt-2">
               <div className={`w-1.5 h-1.5 ${businessType === 'RESTAURANT' ? 'bg-emerald-500' : 'bg-blue-500'} rounded-full animate-pulse`} />
               <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest truncate" title={businessName}>{businessName}</p>
@@ -423,7 +423,7 @@ const App: React.FC = () => {
               <p className="text-sm font-black text-emerald-500">AKTİF</p>
             </div>
             <button
-              onClick={() => { localStorage.removeItem('mesajflow_auth'); setIsAuthenticated(false); showToast("Güvenli çıkış yapıldı.", "INFO"); }}
+              onClick={() => { localStorage.removeItem('aura_auth'); setIsAuthenticated(false); showToast("Güvenli çıkış yapıldı.", "INFO"); }}
               className="w-full flex items-center justify-center gap-2 p-4 bg-rose-500/5 border border-rose-500/10 rounded-2xl text-rose-500/60 hover:text-rose-500 hover:bg-rose-500/10 transition-all text-[10px] font-black uppercase tracking-widest"
             >
               <LogOut size={16} /> ÇIKIŞ
@@ -435,7 +435,7 @@ const App: React.FC = () => {
           <header className="h-24 border-b border-white/5 flex items-center justify-between px-12 bg-[#0a0a0b]/80 backdrop-blur-2xl z-10">
             <div className="flex flex-col">
               <h2 className="text-xl font-black uppercase tracking-tighter text-zinc-200">{menuItems.find(i => i.id === activeTab)?.label}</h2>
-              <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">MesajFlow v1.0.0</p>
+              <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Aura v1.0.0</p>
             </div>
             <div className="flex items-center gap-8">
               <div className="flex items-center gap-6 px-6 py-2 bg-zinc-900/50 border border-white/5 rounded-2xl">

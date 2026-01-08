@@ -104,7 +104,7 @@ const DashboardView: React.FC = () => {
   if (loading) return (
     <div className="h-[60vh] flex flex-col items-center justify-center text-zinc-500 gap-6">
       <Loader2 size={60} className="animate-spin text-emerald-500 opacity-20" />
-      <p className="text-[10px] font-black uppercase tracking-[0.5em] animate-pulse">MesajFlow Yükleniyor...</p>
+      <p className="text-[10px] font-black uppercase tracking-[0.5em] animate-pulse">Aura Yükleniyor...</p>
     </div>
   );
 
