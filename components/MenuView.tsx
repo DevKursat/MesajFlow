@@ -62,22 +62,68 @@ const MenuView: React.FC<MenuViewProps> = ({ businessId, showToast }) => {
         setIsAnalyzing(true);
         try {
             const reader = new FileReader();
-            const base64 = await new Promise<string>((resolve) => { reader.onloadend = () => resolve((reader.result as string).split(',')[1]); reader.readAsDataURL(importFile); });
+            const base64 = await new Promise<string>((resolve) => {
+                reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
+                reader.readAsDataURL(importFile);
+            });
             // @ts-ignore
             const apiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY || 'AIzaSyBvhgHXsVz73l55eGPMF8q7wQ5Cq36_44o';
-            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ contents: [{ parts: [{ inlineData: { mimeType: importFile.type, data: base64 } }, { text: 'Bu menü fotoğrafını analiz et. Tüm ürünleri bul. JSON array döndür: [{"name":"..","description":"..","price":99.90}]. Fiyatları sayı yaz. SADECE JSON.' }] }] })
+
+            const prompt = `Bu görseli analiz et. Eğer menü, yemek listesi, ürün listesi veya fiyat listesi görüyorsan TÜM ürünleri çıkar.
+
+Her ürün için şunları bul:
+- name: Ürün/yemek adı
+- description: Varsa açıklama (yoksa boş string)
+- price: Fiyat (sadece sayı, TL/₺ olmadan)
+
+SADECE JSON array döndür, başka hiçbir şey yazma:
+[{"name":"Ürün Adı","description":"Açıklama","price":99.90}]
+
+Fiyat bulamazsan 0 yaz. Türkçe karakterleri koru.`;
+
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ contents: [{ parts: [{ inlineData: { mimeType: importFile.type, data: base64 } }, { text: prompt }] }] })
             });
             const data = await res.json();
+            console.log('Gemini Response:', data);
+
             const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-            const match = text.match(/\[[\s\S]*\]/);
-            if (match) {
-                const parsed = JSON.parse(match[0]);
-                setExtractedItems(parsed.map((item: any, i: number) => ({ id: `ext_${Date.now()}_${i}`, name: item.name || '', description: item.description || '', price: parseFloat(item.price) || 0, selected: true })));
-                showToast(`${parsed.length} ürün bulundu!`, 'SUCCESS');
-            } else { showToast('Ürün bulunamadı', 'WARN'); }
-        } catch { showToast('Analiz başarısız', 'ERROR'); }
+            console.log('Extracted text:', text);
+
+            // JSON'u bul - hem düz array hem de code block içinde arayalım
+            let jsonStr = '';
+            const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+            if (codeBlockMatch) {
+                jsonStr = codeBlockMatch[1].trim();
+            } else {
+                const arrayMatch = text.match(/\[[\s\S]*\]/);
+                if (arrayMatch) jsonStr = arrayMatch[0];
+            }
+
+            if (jsonStr) {
+                const parsed = JSON.parse(jsonStr);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    setExtractedItems(parsed.map((item: any, i: number) => ({
+                        id: `ext_${Date.now()}_${i}`,
+                        name: String(item.name || 'Ürün').trim(),
+                        description: String(item.description || '').trim(),
+                        price: parseFloat(item.price) || 0,
+                        selected: true
+                    })));
+                    showToast(`${parsed.length} ürün bulundu!`, 'SUCCESS');
+                } else {
+                    showToast('Görselde ürün bulunamadı', 'WARN');
+                }
+            } else {
+                console.error('JSON not found in response:', text);
+                showToast('Ürün çıkarılamadı - lütfen menü görseli yükleyin', 'WARN');
+            }
+        } catch (err) {
+            console.error('Analysis error:', err);
+            showToast('Analiz başarısız - tekrar deneyin', 'ERROR');
+        }
         finally { setIsAnalyzing(false); }
     };
 
