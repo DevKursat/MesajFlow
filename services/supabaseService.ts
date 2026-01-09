@@ -240,9 +240,28 @@ export const loginBusiness = async (businessName: string, password: string): Pro
     if (!data) return null;
     if (data.system_password !== password) return null;
 
+    // Süresi dolmuş mu kontrol et
+    if (data.subscription_end_date) {
+      const endDate = new Date(data.subscription_end_date);
+      const now = new Date();
+      if (endDate < now && !data.is_frozen) {
+        // Süresi dolmuş ama henüz dondurulmamış, şimdi dondur
+        await supabase.from('ai_settings').update({ is_frozen: true }).eq('id', data.id);
+        data.is_frozen = true;
+      }
+    }
+
+    // Donmuş hesap kontrolü
+    if (data.is_frozen) {
+      const err = new Error("ACCOUNT_FROZEN");
+      (err as any).code = 'ACCOUNT_FROZEN';
+      (err as any).subscriptionEndDate = data.subscription_end_date;
+      throw err;
+    }
+
     return data as AiSettings;
   } catch (err: any) {
-    if (err.code === 'DB_TABLE_MISSING') throw err;
+    if (err.code === 'DB_TABLE_MISSING' || err.code === 'ACCOUNT_FROZEN') throw err;
     return null;
   }
 };

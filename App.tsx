@@ -87,7 +87,11 @@ const LoginView: React.FC<{ onLogin: (settings: AiSettings) => void, showToast: 
         throw new Error("INVALID_CREDENTIALS");
       }
     } catch (err: any) {
-      if (err.message === 'INVALID_CREDENTIALS') {
+      if (err.code === 'ACCOUNT_FROZEN') {
+        setError(true);
+        showToast("⚠️ Hesabınız donduruldu veya abonelik süreniz doldu. Lütfen yönetici ile iletişime geçin.", "ERROR");
+        setTimeout(() => setError(false), 3000);
+      } else if (err.message === 'INVALID_CREDENTIALS') {
         const nextAttempts = failedAttempts + 1;
         setFailedAttempts(nextAttempts);
         setError(true);
