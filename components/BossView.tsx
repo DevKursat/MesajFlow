@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
     Plus, Trash2, UtensilsCrossed, Store, Building2, Lock, RefreshCw,
-    CheckCircle, XCircle, Shield, Users
+    CheckCircle, XCircle, Shield, Users, MessageCircle, Send
 } from 'lucide-react';
 import { AiSettings, BusinessType } from '../types';
 import { fetchAllBusinesses, registerBusiness, deleteBusiness } from '../services/supabaseService';
@@ -20,6 +20,8 @@ const BossView: React.FC<BossViewProps> = ({ showToast }) => {
     const [newName, setNewName] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [newType, setNewType] = useState<BusinessType>('RESTAURANT');
+    const [useWhatsapp, setUseWhatsapp] = useState(true);
+    const [useTelegram, setUseTelegram] = useState(false);
 
     const loadBusinesses = async () => {
         setIsLoading(true);
@@ -42,14 +44,20 @@ const BossView: React.FC<BossViewProps> = ({ showToast }) => {
             showToast('Şifre en az 4 karakter olmalı!', 'WARN');
             return;
         }
+        if (!useWhatsapp && !useTelegram) {
+            showToast('En az bir platform seçmelisiniz!', 'WARN');
+            return;
+        }
 
         setIsSubmitting(true);
         try {
-            await registerBusiness(newName.trim(), newPassword, newType);
+            await registerBusiness(newName.trim(), newPassword, newType, useWhatsapp, useTelegram);
             showToast(`${newName} başarıyla eklendi!`, 'SUCCESS');
             setNewName('');
             setNewPassword('');
             setNewType('RESTAURANT');
+            setUseWhatsapp(true);
+            setUseTelegram(false);
             setShowAddForm(false);
             loadBusinesses();
         } catch (err: any) {
@@ -146,6 +154,34 @@ const BossView: React.FC<BossViewProps> = ({ showToast }) => {
                                 <Store size={20} />
                                 <span className="font-bold text-sm">E-Ticaret</span>
                             </button>
+                        </div>
+
+                        {/* Platform Seçimi - WhatsApp & Telegram */}
+                        <div className="bg-zinc-900/30 border border-white/5 rounded-xl p-4">
+                            <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-3">Platform Seçimi</p>
+                            <div className="grid grid-cols-2 gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setUseWhatsapp(!useWhatsapp)}
+                                    className={`p-4 rounded-xl border transition-all flex items-center justify-center gap-3 ${useWhatsapp ? 'bg-green-500/10 border-green-500/50 text-green-500' : 'bg-zinc-900/50 border-white/5 text-zinc-500 hover:text-white'}`}
+                                >
+                                    <MessageCircle size={20} />
+                                    <span className="font-bold text-sm">WhatsApp</span>
+                                    {useWhatsapp && <CheckCircle size={16} className="ml-auto" />}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setUseTelegram(!useTelegram)}
+                                    className={`p-4 rounded-xl border transition-all flex items-center justify-center gap-3 ${useTelegram ? 'bg-sky-500/10 border-sky-500/50 text-sky-500' : 'bg-zinc-900/50 border-white/5 text-zinc-500 hover:text-white'}`}
+                                >
+                                    <Send size={20} />
+                                    <span className="font-bold text-sm">Telegram</span>
+                                    {useTelegram && <CheckCircle size={16} className="ml-auto" />}
+                                </button>
+                            </div>
+                            {!useWhatsapp && !useTelegram && (
+                                <p className="text-orange-400 text-xs mt-2 text-center">⚠️ En az bir platform seçmelisiniz</p>
+                            )}
                         </div>
 
                         <div className="flex gap-3 pt-2">

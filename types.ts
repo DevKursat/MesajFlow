@@ -41,6 +41,8 @@ export interface AiSettings {
   system_password: string;
   ai_instruction: string;
   human_simulation: boolean; // Yazım hatası vs yapma
+  use_whatsapp: boolean; // WhatsApp kullanımı
+  use_telegram: boolean; // Telegram kullanımı
   created_at?: string;
 }
 

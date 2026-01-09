@@ -16,6 +16,8 @@ CREATE TABLE public.ai_settings (
   delay_seconds INTEGER DEFAULT 3,
   ai_instruction TEXT,
   human_simulation BOOLEAN DEFAULT true,
+  use_whatsapp BOOLEAN DEFAULT true,
+  use_telegram BOOLEAN DEFAULT false,
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
@@ -249,7 +251,9 @@ export const loginBusiness = async (businessName: string, password: string): Pro
 export const registerBusiness = async (
   businessName: string,
   password: string,
-  businessType: BusinessType
+  businessType: BusinessType,
+  useWhatsapp: boolean = true,
+  useTelegram: boolean = false
 ): Promise<AiSettings> => {
   try {
     const defaultInstruction = businessType === 'RESTAURANT'
@@ -265,7 +269,9 @@ export const registerBusiness = async (
         tone: 'SAMIMI',
         ai_instruction: defaultInstruction,
         human_simulation: true,
-        delay_seconds: 3
+        delay_seconds: 3,
+        use_whatsapp: useWhatsapp,
+        use_telegram: useTelegram
       }])
       .select()
       .single();
