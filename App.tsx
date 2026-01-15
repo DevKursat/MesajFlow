@@ -22,6 +22,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import Toast, { ToastType } from './components/Toast';
 import { fetchTransactions, fetchAiSettings, subscribeToTable, logError, initializeSettings, SUPABASE_SQL_SETUP, loginBusiness, registerBusiness } from './services/supabaseService';
 import { BusinessType, AiSettings } from './types';
+import Logo from './components/Logo';
 
 const LoginView: React.FC<{ onLogin: (settings: AiSettings) => void, showToast: (msg: string, type: ToastType) => void }> = ({ onLogin, showToast }) => {
   const [businessName, setBusinessName] = useState('');
@@ -121,11 +122,17 @@ const LoginView: React.FC<{ onLogin: (settings: AiSettings) => void, showToast: 
         <div className={`absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent ${lockoutTime > 0 ? 'via-rose-500' : 'via-emerald-500'} to-transparent transition-colors`} />
 
         <div className="text-center space-y-4 mb-8">
-          <div className={`w-20 h-20 ${lockoutTime > 0 ? 'bg-rose-500/10 border-rose-500/20 text-rose-500' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500'} border rounded-3xl flex items-center justify-center mx-auto shadow-[0_0_30px_rgba(16,185,129,0.1)] transition-colors`}>
-            {lockoutTime > 0 ? <AlertOctagon size={40} /> : <MessageCircle size={40} />}
+          <div className="flex justify-center">
+            {lockoutTime > 0 ? (
+              <div className="w-20 h-20 bg-rose-500/10 border border-rose-500/20 text-rose-500 border rounded-3xl flex items-center justify-center mx-auto shadow-[0_0_30px_rgba(244,63,94,0.1)] transition-colors">
+                <AlertOctagon size={40} />
+              </div>
+            ) : (
+              <Logo size="xl" iconOnly={false} />
+            )}
           </div>
-          <h1 className="text-4xl font-black tracking-tighter text-white">Au<span className={`${lockoutTime > 0 ? 'text-rose-500' : 'text-emerald-500'} transition-colors`}>ra</span></h1>
-          <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-[0.3em]">İşletme Girişi</p>
+          {lockoutTime > 0 && <h1 className="text-4xl font-black tracking-tighter text-white mt-4">Au<span className="text-rose-500">ra</span></h1>}
+          <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-[0.3em] mt-2">İşletme Girişi</p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-4">
@@ -452,7 +459,7 @@ const App: React.FC = () => {
         )}
         <aside className="w-72 bg-[#0a0a0b] border-r border-white/5 flex flex-col shadow-2xl z-20">
           <div className="p-10">
-            <h2 className="text-3xl font-black tracking-tighter">Au<span className="text-emerald-500">ra</span></h2>
+            <Logo size="md" />
             <div className="flex items-center gap-2 mt-2">
               <div className={`w-1.5 h-1.5 ${businessType === 'RESTAURANT' ? 'bg-emerald-500' : 'bg-blue-500'} rounded-full animate-pulse`} />
               <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest truncate" title={businessName}>{businessName}</p>

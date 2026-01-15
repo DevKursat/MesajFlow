@@ -1,6 +1,6 @@
 {
-  "name": "CasinoFlow AI",
-  "description": "WhatsApp tabanlı yapay zeka destekli casino yatırım otomasyonu ve admin yönetim paneli. Otomatik IBAN rotasyonu, dekont analizi ve akıllı sohbet yönetimi.",
+  "name": "Aura",
+  "description": "WhatsApp ve Telegram tabanlı yapay zeka destekli müşteri iletişim ve yönetim platformu.",
   "requestFramePermissions": [
     "camera",
     "microphone"
