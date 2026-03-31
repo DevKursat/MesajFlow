@@ -1,265 +1,276 @@
+import { initializeApp } from "firebase/app";
+import {
+  getFirestore,
+  collection,
+  getDocs,
+  getDoc,
+  addDoc,
+  setDoc,
+  updateDoc,
+  deleteDoc,
+  doc,
+  query,
+  where,
+  orderBy,
+  limit,
+  onSnapshot
+} from "firebase/firestore";
+import { Transaction, Iban, AiSettings, WhatsAppConnection, WhatsAppMessage, BusinessType } from '../types';
 
-import { createClient } from '@supabase/supabase-js';
-import { Transaction, Iban, AiSettings, WhatsAppConnection, WhatsAppMessage } from '../types';
+const firebaseConfig = {
+  apiKey: "AIzaSyAMAc_ianZwaPOrM1ZmzpLvCRq7ZjEoarE",
+  authDomain: "mesaj-flow.firebaseapp.com",
+  projectId: "mesaj-flow",
+  storageBucket: "mesaj-flow.firebasestorage.app",
+  messagingSenderId: "307489243875",
+  appId: "1:307489243875:web:23b774a1d3a343135a3bd6"
+};
 
-export const SUPABASE_SQL_SETUP = `-- 1. SIFIRLA
-DROP PUBLICATION IF EXISTS supabase_realtime;
-DROP TABLE IF EXISTS public.system_logs, public.whatsapp_messages, public.whatsapp_connections, public.menu_items, public.menu_categories, public.products, public.product_categories, public.orders, public.customers, public.ai_settings, public.ibans, public.transactions CASCADE;
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
 
--- 2. ANA TABLOLAR
-CREATE TABLE public.ai_settings (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  business_name TEXT NOT NULL UNIQUE,
-  business_type TEXT DEFAULT 'RESTAURANT', -- 'RESTAURANT' veya 'ECOMMERCE'
-  system_password TEXT NOT NULL,
-  tone TEXT DEFAULT 'SAMIMI',
-  delay_seconds INTEGER DEFAULT 3,
-  ai_instruction TEXT,
-  human_simulation BOOLEAN DEFAULT true,
-  use_whatsapp BOOLEAN DEFAULT true,
-  use_telegram BOOLEAN DEFAULT false,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
+export const SUPABASE_SQL_SETUP = `-- Firebase is used instead of Supabase --`;
 
--- 3. MÜŞTERİLER
-CREATE TABLE public.customers (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  business_id uuid REFERENCES public.ai_settings(id) ON DELETE CASCADE,
-  phone TEXT NOT NULL,
-  name TEXT,
-  email TEXT,
-  address TEXT,
-  note TEXT,
-  total_orders INTEGER DEFAULT 0,
-  total_spent NUMERIC DEFAULT 0,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
+class SupabaseQueryBuilder {
+  tableName: string;
+  isSelect: boolean = false;
+  isInsert: boolean = false;
+  isUpdate: boolean = false;
+  isDelete: boolean = false;
 
--- 4. SİPARİŞLER
-CREATE TABLE public.orders (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  business_id uuid REFERENCES public.ai_settings(id) ON DELETE CASCADE,
-  customer_id uuid REFERENCES public.customers(id),
-  order_number TEXT,
-  status TEXT DEFAULT 'PENDING', -- PENDING, CONFIRMED, PREPARING, SHIPPED, DELIVERED, CANCELLED
-  items JSONB DEFAULT '[]', -- [{name, quantity, price, item_id}]
-  subtotal NUMERIC DEFAULT 0,
-  delivery_fee NUMERIC DEFAULT 0,
-  total NUMERIC DEFAULT 0,
-  note TEXT,
-  address TEXT,
-  customer_phone TEXT,
-  customer_name TEXT,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
+  selectCols: string = '';
+  eqFilters: {field: string, val: any}[] = [];
+  orderFilters: {column: string, ascending: boolean}[] = [];
+  limitVal: number | null = null;
+  updateData: any = null;
+  insertData: any = null;
 
--- 5. RESTORAN: MENÜ KATEGORİLERİ
-CREATE TABLE public.menu_categories (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  business_id uuid REFERENCES public.ai_settings(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  sort_order INTEGER DEFAULT 0,
-  is_active BOOLEAN DEFAULT true,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
+  constructor(tableName: string) {
+    this.tableName = tableName;
+  }
 
--- 6. RESTORAN: MENÜ ÖĞELERİ
-CREATE TABLE public.menu_items (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  business_id uuid REFERENCES public.ai_settings(id) ON DELETE CASCADE,
-  category_id uuid REFERENCES public.menu_categories(id) ON DELETE SET NULL,
-  name TEXT NOT NULL,
-  description TEXT,
-  price NUMERIC NOT NULL DEFAULT 0,
-  image_url TEXT,
-  is_available BOOLEAN DEFAULT true,
-  sort_order INTEGER DEFAULT 0,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
+  select(cols: string = '*') {
+    this.isSelect = true;
+    this.selectCols = cols;
+    return this;
+  }
 
--- 7. E-TİCARET: ÜRÜN KATEGORİLERİ
-CREATE TABLE public.product_categories (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  business_id uuid REFERENCES public.ai_settings(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  sort_order INTEGER DEFAULT 0,
-  is_active BOOLEAN DEFAULT true,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
+  insert(data: any | any[]) {
+    this.isInsert = true;
+    this.insertData = data;
+    return this;
+  }
 
--- 8. E-TİCARET: ÜRÜNLER
-CREATE TABLE public.products (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  business_id uuid REFERENCES public.ai_settings(id) ON DELETE CASCADE,
-  category_id uuid REFERENCES public.product_categories(id) ON DELETE SET NULL,
-  name TEXT NOT NULL,
-  description TEXT,
-  price NUMERIC NOT NULL DEFAULT 0,
-  stock INTEGER DEFAULT 0,
-  sku TEXT,
-  image_url TEXT,
-  is_active BOOLEAN DEFAULT true,
-  sort_order INTEGER DEFAULT 0,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
+  update(data: any) {
+    this.isUpdate = true;
+    this.updateData = data;
+    return this;
+  }
 
--- 9. WHATSAPP BAĞLANTILARI
-CREATE TABLE public.whatsapp_connections (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  business_id uuid REFERENCES public.ai_settings(id) ON DELETE CASCADE,
-  name TEXT,
-  representative_name TEXT DEFAULT 'Destek',
-  status TEXT DEFAULT 'INITIALIZING',
-  phone_number TEXT,
-  qr_code TEXT,
-  pairing_code TEXT,
-  battery_level INTEGER DEFAULT 100,
-  last_seen TIMESTAMPTZ DEFAULT now(),
-  created_at TIMESTAMPTZ DEFAULT now()
-);
+  delete() {
+    this.isDelete = true;
+    return this;
+  }
 
--- 10. WHATSAPP MESAJLARI
-CREATE TABLE public.whatsapp_messages (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  connection_id uuid REFERENCES public.whatsapp_connections(id) ON DELETE CASCADE,
-  wa_message_id TEXT,
-  sender_phone TEXT,
-  target_phone TEXT,
-  message_text TEXT,
-  is_from_me BOOLEAN DEFAULT false,
-  is_outgoing BOOLEAN DEFAULT false,
-  is_media BOOLEAN DEFAULT false,
-  media_url TEXT,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
+  eq(column: string, value: any) {
+    this.eqFilters.push({ field: column, val: value });
+    return this;
+  }
 
--- 11. SİSTEM LOGLARI
-CREATE TABLE public.system_logs (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  severity TEXT DEFAULT 'ERROR',
-  module TEXT,
-  message TEXT,
-  stack_trace TEXT,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
+  lt(column: string, value: any) {
+    return this;
+  }
 
--- 12. ESKİ TABLOLAR (geriye uyumluluk)
-CREATE TABLE public.transactions (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  connection_id uuid,
-  iban_id uuid,
-  sender_name TEXT,
-  username TEXT,
-  amount NUMERIC DEFAULT 0,
-  status TEXT DEFAULT 'PENDING',
-  created_at TIMESTAMPTZ DEFAULT now(),
-  receipt_url TEXT,
-  bank_name TEXT,
-  customer_phone TEXT,
-  wa_message_id TEXT
-);
+  order(column: string, options?: { ascending?: boolean }) {
+    this.orderFilters.push({ column, ascending: options?.ascending !== false });
+    return this;
+  }
 
-CREATE TABLE public.ibans (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  bank_name TEXT,
-  account_holder TEXT,
-  iban_number TEXT UNIQUE,
-  is_active BOOLEAN DEFAULT true,
-  usage_count INTEGER DEFAULT 0,
-  limit_amount NUMERIC DEFAULT 100000,
-  current_total NUMERIC DEFAULT 0,
-  priority INTEGER DEFAULT 1,
-  description TEXT,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
+  limit(count: number) {
+    this.limitVal = count;
+    return this;
+  }
 
--- RLS & GRANTS
-ALTER TABLE public.ai_settings DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.customers DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.orders DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.menu_categories DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.menu_items DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.product_categories DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.products DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.whatsapp_connections DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.whatsapp_messages DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.system_logs DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.transactions DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.ibans DISABLE ROW LEVEL SECURITY;
-GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, service_role;
+  single() {
+    return this.maybeSingle();
+  }
 
--- REALTIME
-ALTER TABLE public.orders REPLICA IDENTITY FULL;
-ALTER TABLE public.customers REPLICA IDENTITY FULL;
-ALTER TABLE public.menu_items REPLICA IDENTITY FULL;
-ALTER TABLE public.products REPLICA IDENTITY FULL;
-ALTER TABLE public.whatsapp_connections REPLICA IDENTITY FULL;
-ALTER TABLE public.whatsapp_messages REPLICA IDENTITY FULL;
-ALTER TABLE public.ai_settings REPLICA IDENTITY FULL;
+  async maybeSingle() {
+    const res = await this.execute();
+    if (res.error) return res;
+    return { data: res.data && res.data.length > 0 ? res.data[0] : null, error: null };
+  }
 
-CREATE PUBLICATION supabase_realtime FOR TABLE 
-    public.orders, public.customers, public.menu_items, public.products, 
-    public.whatsapp_connections, public.whatsapp_messages, public.ai_settings;
+  then(onfulfilled: (value: any) => any, onrejected?: (reason: any) => any) {
+    return this.execute().then(onfulfilled, onrejected);
+  }
 
--- DEMO VERİ
-INSERT INTO public.ai_settings (business_name, business_type, system_password, tone, ai_instruction) 
-VALUES 
-  ('Demo Restoran', 'RESTAURANT', '122112', 'SAMIMI', 'Sen bir restoran müşteri destek asistanısın. Menü, sipariş ve rezervasyon konularında yardımcı ol. Müşterilere güncel menüyü paylaş.'),
-  ('Demo E-Ticaret', 'ECOMMERCE', '122112', 'PRO', 'Sen bir e-ticaret müşteri destek asistanısın. Ürünler, sipariş takibi ve iade konularında yardımcı ol. Profesyonel ve hızlı yanıt ver.')
-ON CONFLICT (business_name) DO NOTHING;
-`;
+  private async execute() {
+    try {
+      const colRef = collection(db, this.tableName);
 
-// @ts-ignore - Vite environment variables
-const supabaseUrl = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_URL) || 'https://wtpfwwgtofpybomfmhnk.supabase.co';
-// @ts-ignore - Vite environment variables
-const supabaseKey = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_KEY) || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind0cGZ3d2d0b2ZweWJvbWZtaG5rIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NzcwMTY2NywiZXhwIjoyMDgzMjc3NjY3fQ.dAvFwxXxH5LBoka95kyOkVW09IBHbZ3m2hylNIA9YAg';
+      if (this.isSelect) {
+        let q = query(colRef);
 
-export const supabase = createClient(supabaseUrl, supabaseKey);
+        for (const filter of this.eqFilters) {
+          if (filter.field === 'id') {
+             const docRef = doc(db, this.tableName, filter.val);
+             const docSnap = await getDoc(docRef);
+             if (docSnap.exists()) {
+               return { data: [{ id: docSnap.id, ...docSnap.data() }], error: null };
+             } else {
+               return { data: [], error: null };
+             }
+          } else {
+            q = query(q, where(filter.field, "==", filter.val));
+          }
+        }
 
-import { BusinessType } from '../types';
+        if (this.orderFilters.length > 0 && this.eqFilters.length === 0) {
+            for (const order of this.orderFilters) {
+               q = query(q, orderBy(order.column, order.ascending ? 'asc' : 'desc'));
+            }
+        }
 
-// İşletme adı ve şifre ile giriş
+        if (this.limitVal !== null) {
+          q = query(q, limit(this.limitVal));
+        }
+
+        const snapshot = await getDocs(q);
+        let docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+
+        if (this.orderFilters.length > 0 && this.eqFilters.length > 0) {
+            const order = this.orderFilters[0];
+            docs.sort((a: any, b: any) => {
+               if (a[order.column] < b[order.column]) return order.ascending ? -1 : 1;
+               if (a[order.column] > b[order.column]) return order.ascending ? 1 : -1;
+               return 0;
+            });
+        }
+
+        return { data: docs, error: null };
+      }
+
+      if (this.isInsert) {
+        let inserted = [];
+        const isArray = Array.isArray(this.insertData);
+        const dataArr = isArray ? this.insertData : [this.insertData];
+
+        for (const item of dataArr) {
+          const itemToInsert = { ...item, created_at: item.created_at || new Date().toISOString() };
+          if (itemToInsert.id) delete itemToInsert.id;
+          const docRef = await addDoc(colRef, itemToInsert);
+          inserted.push({ id: docRef.id, ...itemToInsert });
+        }
+
+        return { data: isArray ? inserted : inserted[0], error: null };
+      }
+
+      if (this.isUpdate) {
+        let q = query(colRef);
+        for (const filter of this.eqFilters) {
+            if (filter.field === 'id') {
+               const docRef = doc(db, this.tableName, filter.val);
+               await updateDoc(docRef, this.updateData);
+               return { data: null, error: null };
+            }
+            q = query(q, where(filter.field, "==", filter.val));
+        }
+
+        const snapshot = await getDocs(q);
+        for (const docSnap of snapshot.docs) {
+           await updateDoc(docSnap.ref, this.updateData);
+        }
+        return { data: null, error: null };
+      }
+
+      if (this.isDelete) {
+        let q = query(colRef);
+        for (const filter of this.eqFilters) {
+            if (filter.field === 'id') {
+               const docRef = doc(db, this.tableName, filter.val);
+               await deleteDoc(docRef);
+               return { data: null, error: null };
+            }
+            q = query(q, where(filter.field, "==", filter.val));
+        }
+
+        const snapshot = await getDocs(q);
+        for (const docSnap of snapshot.docs) {
+           await deleteDoc(docSnap.ref);
+        }
+        return { data: null, error: null };
+      }
+
+      return { data: null, error: new Error("Unsupported query") };
+
+    } catch (e: any) {
+       console.error("Firestore Mock Error:", e);
+       if (e.message && e.message.includes('Missing or insufficient permissions')) {
+          return { data: null, error: { message: e.message, code: 'PGRST116' } };
+       }
+       return { data: null, error: e };
+    }
+  }
+}
+
+export const supabase = {
+  from: (tableName: string) => {
+    return new SupabaseQueryBuilder(tableName);
+  },
+  channel: (name: string) => {
+    return {
+      on: (event: string, config: any, callback: (payload: any) => void) => {
+        return {
+          subscribe: () => {
+             const tableName = config.table;
+             const q = query(collection(db, tableName));
+             const unsubscribe = onSnapshot(q, (snapshot) => {
+                 snapshot.docChanges().forEach((change) => {
+                     callback({ type: change.type, new: {id: change.doc.id, ...change.doc.data()} });
+                 });
+             });
+             return { unsubscribe };
+          }
+        };
+      }
+    };
+  }
+};
+
+
 export const loginBusiness = async (businessName: string, password: string): Promise<AiSettings | null> => {
   try {
-    const { data, error } = await supabase
-      .from('ai_settings')
-      .select('*')
-      .eq('business_name', businessName)
-      .maybeSingle();
+    const q = query(collection(db, 'ai_settings'), where('business_name', '==', businessName));
+    const snapshot = await getDocs(q);
 
-    if (error) {
-      if (error.code === 'PGRST116' || error.message.includes('relation "public.ai_settings" does not exist')) {
+    if (snapshot.empty) {
         const err = new Error("DB_TABLE_MISSING");
         (err as any).code = 'DB_TABLE_MISSING';
         throw err;
-      }
-      throw error;
     }
 
-    if (!data) return null;
+    const docSnap = snapshot.docs[0];
+    const data = { id: docSnap.id, ...docSnap.data() } as AiSettings;
+
     if (data.system_password !== password) return null;
 
-    // Süresi dolmuş mu kontrol et ve otomatik dondur
     if (data.subscription_end_date) {
       const endDate = new Date(data.subscription_end_date);
       const now = new Date();
       if (endDate < now && !data.is_frozen) {
-        // Süresi dolmuş ama henüz dondurulmamış, şimdi dondur
-        await supabase.from('ai_settings').update({ is_frozen: true }).eq('id', data.id);
+        await updateDoc(docSnap.ref, { is_frozen: true });
         data.is_frozen = true;
       }
     }
 
-    // Donmuş olsa bile giriş yapabilir - UI tarafında engelleme gösterilecek
-    return data as AiSettings;
+    return data;
   } catch (err: any) {
     if (err.code === 'DB_TABLE_MISSING') throw err;
     return null;
   }
 };
 
-// Yeni işletme kaydı
 export const registerBusiness = async (
   businessName: string,
   password: string,
@@ -273,13 +284,10 @@ export const registerBusiness = async (
       ? 'Sen bir restoran müşteri destek asistanısın. Menü, sipariş ve rezervasyon konularında yardımcı ol. Samimi ve çözüm odaklı ol.'
       : 'Sen bir e-ticaret müşteri destek asistanısın. Ürün, sipariş takibi ve iade konularında yardımcı ol. Profesyonel ve hızlı yanıt ver.';
 
-    // Bitiş tarihini hesapla
     const endDate = new Date();
     endDate.setDate(endDate.getDate() + subscriptionDays);
 
-    const { data, error } = await supabase
-      .from('ai_settings')
-      .insert([{
+    const docRef = await addDoc(collection(db, 'ai_settings'), {
         business_name: businessName,
         business_type: businessType,
         system_password: password,
@@ -291,61 +299,56 @@ export const registerBusiness = async (
         use_telegram: useTelegram,
         is_frozen: false,
         subscription_days: subscriptionDays,
-        subscription_end_date: endDate.toISOString()
-      }])
-      .select()
-      .single();
+        subscription_end_date: endDate.toISOString(),
+        created_at: new Date().toISOString()
+    });
 
-    if (error) throw error;
-    return data as AiSettings;
+    const docSnap = await getDoc(docRef);
+    return { id: docRef.id, ...docSnap.data() } as AiSettings;
   } catch (err: any) {
     logError('Register', 'İşletme kaydı başarısız', err);
     throw err;
   }
 };
 
-// İşletme güncelleme
 export const updateBusiness = async (businessId: string, updates: Partial<AiSettings>) => {
   try {
-    // Eğer subscription_days değiştiyse, yeni bitiş tarihi hesapla
     if (updates.subscription_days) {
       const endDate = new Date();
       endDate.setDate(endDate.getDate() + updates.subscription_days);
       updates.subscription_end_date = endDate.toISOString();
     }
 
-    const { error } = await supabase.from('ai_settings').update(updates).eq('id', businessId);
-    if (error) throw error;
+    await updateDoc(doc(db, 'ai_settings', businessId), updates as any);
   } catch (err) {
     logError('Admin', 'İşletme güncellenemedi', err);
     throw err;
   }
 };
 
-// Hesap dondur/çöz
 export const toggleFreezeBusiness = async (businessId: string, freeze: boolean) => {
   try {
-    const { error } = await supabase.from('ai_settings').update({ is_frozen: freeze }).eq('id', businessId);
-    if (error) throw error;
+    await updateDoc(doc(db, 'ai_settings', businessId), { is_frozen: freeze });
   } catch (err) {
     logError('Admin', 'Hesap dondurma/çözme başarısız', err);
     throw err;
   }
 };
 
-// Süresi dolan hesapları kontrol et ve dondur
 export const checkAndFreezeExpired = async (): Promise<number> => {
   try {
     const now = new Date().toISOString();
-    const { data, error } = await supabase
-      .from('ai_settings')
-      .update({ is_frozen: true })
-      .lt('subscription_end_date', now)
-      .eq('is_frozen', false)
-      .select();
+    const snapshot = await getDocs(collection(db, 'ai_settings'));
+    let count = 0;
 
-    if (error) throw error;
-    return data?.length || 0;
+    for (const d of snapshot.docs) {
+        const data = d.data();
+        if (data.subscription_end_date < now && data.is_frozen === false) {
+             await updateDoc(d.ref, { is_frozen: true });
+             count++;
+        }
+    }
+    return count;
   } catch (err) {
     logError('Admin', 'Süresi dolan hesaplar kontrol edilemedi', err);
     return 0;
@@ -354,14 +357,19 @@ export const checkAndFreezeExpired = async (): Promise<number> => {
 
 export const initializeSettings = async () => {
   try {
-    const { error } = await supabase.from('ai_settings').insert([{
-      business_name: 'Demo Restoran',
-      business_type: 'RESTAURANT',
-      system_password: '122112',
-      tone: 'SAMIMI',
-      ai_instruction: 'Sen bir restoran müşteri destek asistanısın.',
-    }]);
-    if (error && error.code !== '23505') throw error;
+    const q = query(collection(db, 'ai_settings'), where('business_name', '==', 'Demo Restoran'));
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) {
+        await addDoc(collection(db, 'ai_settings'), {
+          business_name: 'Demo Restoran',
+          business_type: 'RESTAURANT',
+          system_password: '122112',
+          tone: 'SAMIMI',
+          ai_instruction: 'Sen bir restoran müşteri destek asistanısın.',
+          created_at: new Date().toISOString()
+        });
+    }
     return true;
   } catch (err) {
     console.error("Initialization failed:", err);
@@ -372,32 +380,30 @@ export const initializeSettings = async () => {
 export const logError = async (module: string, message: string, error?: any, severity: 'INFO' | 'WARN' | 'ERROR' | 'CRITICAL' = 'ERROR') => {
   let errorDetails = error ? (typeof error === 'object' ? JSON.stringify(error, Object.getOwnPropertyNames(error)) : String(error)) : '';
   try {
-    await supabase.from('system_logs').insert([{ severity, module, message, stack_trace: errorDetails }]);
+    await addDoc(collection(db, 'system_logs'), { severity, module, message, stack_trace: errorDetails, created_at: new Date().toISOString() });
   } catch (e) { }
 };
 
-// Belirli işletmenin ayarlarını getir
 export const fetchAiSettings = async (businessId?: string): Promise<AiSettings | null> => {
   try {
-    let query = supabase.from('ai_settings').select('*');
-
     if (businessId) {
-      query = query.eq('id', businessId);
+       const docSnap = await getDoc(doc(db, 'ai_settings', businessId));
+       if (docSnap.exists()) {
+           return { id: docSnap.id, ...docSnap.data() } as AiSettings;
+       }
+       return null;
     } else {
-      // Geriye dönük uyumluluk için ilk kaydı getir
-      query = query.limit(1);
-    }
+       const q = query(collection(db, 'ai_settings'), limit(1));
+       const snapshot = await getDocs(q);
+       if (!snapshot.empty) {
+          const d = snapshot.docs[0];
+          return { id: d.id, ...d.data() } as AiSettings;
+       }
 
-    const { data, error } = await query.maybeSingle();
-    if (error) {
-      if (error.code === 'PGRST116' || error.message.includes('relation "public.ai_settings" does not exist')) {
-        const err = new Error("DB_TABLE_MISSING");
-        (err as any).code = 'DB_TABLE_MISSING';
-        throw err;
-      }
-      throw error;
+       const err = new Error("DB_TABLE_MISSING");
+       (err as any).code = 'DB_TABLE_MISSING';
+       throw err;
     }
-    return data;
   } catch (err: any) {
     if (err.code === 'DB_TABLE_MISSING') throw err;
     return null;
@@ -406,34 +412,27 @@ export const fetchAiSettings = async (businessId?: string): Promise<AiSettings |
 
 export const updateAiSettings = async (businessId: string, settings: Partial<AiSettings>) => {
   try {
-    const { error } = await supabase.from('ai_settings').update(settings).eq('id', businessId);
-    if (error) throw error;
+    await updateDoc(doc(db, 'ai_settings', businessId), settings as any);
   } catch (err) {
     logError('Settings', 'AI ayarları güncellenemedi', err);
     throw err;
   }
 };
 
-// Tüm işletmeleri getir (admin için)
 export const fetchAllBusinesses = async (): Promise<AiSettings[]> => {
   try {
-    const { data, error } = await supabase
-      .from('ai_settings')
-      .select('*')
-      .order('created_at', { ascending: false });
-    if (error) throw error;
-    return (data || []) as AiSettings[];
+    const q = query(collection(db, 'ai_settings'), orderBy('created_at', 'desc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as AiSettings));
   } catch (err) {
     logError('Admin', 'İşletmeler getirilemedi', err);
     return [];
   }
 };
 
-// İşletme sil (admin için)
 export const deleteBusiness = async (businessId: string) => {
   try {
-    const { error } = await supabase.from('ai_settings').delete().eq('id', businessId);
-    if (error) throw error;
+    await deleteDoc(doc(db, 'ai_settings', businessId));
   } catch (err) {
     logError('Admin', 'İşletme silinemedi', err);
     throw err;
@@ -442,36 +441,33 @@ export const deleteBusiness = async (businessId: string) => {
 
 export const fetchTransactions = async (): Promise<Transaction[]> => {
   try {
-    const { data, error } = await supabase.from('transactions').select('*').order('created_at', { ascending: false });
-    if (error) throw error;
-    return (data || []) as Transaction[];
+    const q = query(collection(db, 'transactions'), orderBy('created_at', 'desc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Transaction));
   } catch (err) {
     logError('Transactions', 'İşlemler çekilemedi', err);
     return [];
   }
 };
 
-/**
- * İşlem durumunu günceller ve eğer bakiye yüklendiyse IBAN istatistiklerini artırır.
- */
 export const updateTransactionStatus = async (id: string, status: string) => {
   try {
-    // 1. İşlemin mevcut verilerini al
-    const { data: tx, error: fetchError } = await supabase.from('transactions').select('*').eq('id', id).single();
-    if (fetchError) throw fetchError;
+    const txRef = doc(db, 'transactions', id);
+    const txSnap = await getDoc(txRef);
+    if (!txSnap.exists()) throw new Error("Transaction not found");
+    const tx = txSnap.data();
 
-    // 2. Durumu güncelle
-    const { error: updateError } = await supabase.from('transactions').update({ status }).eq('id', id);
-    if (updateError) throw updateError;
+    await updateDoc(txRef, { status });
 
-    // 3. Eğer durum CREDITED (Bakiye Yüklendi) ise IBAN'ı güncelle
     if (status === 'CREDITED' && tx.iban_id) {
-      const { data: iban } = await supabase.from('ibans').select('current_total, usage_count').eq('id', tx.iban_id).single();
-      if (iban) {
-        await supabase.from('ibans').update({
-          current_total: (Number(iban.current_total) || 0) + (Number(tx.amount) || 0),
-          usage_count: (Number(iban.usage_count) || 0) + 1
-        }).eq('id', tx.iban_id);
+      const ibanRef = doc(db, 'ibans', tx.iban_id);
+      const ibanSnap = await getDoc(ibanRef);
+      if (ibanSnap.exists()) {
+         const iban = ibanSnap.data();
+         await updateDoc(ibanRef, {
+            current_total: (Number(iban.current_total) || 0) + (Number(tx.amount) || 0),
+            usage_count: (Number(iban.usage_count) || 0) + 1
+         });
       }
     }
   } catch (err) {
@@ -482,14 +478,18 @@ export const updateTransactionStatus = async (id: string, status: string) => {
 
 export const fetchIbans = async (): Promise<Iban[]> => {
   try {
-    const { data, error } = await supabase.from('ibans').select('*').order('priority', { ascending: false });
-    if (error) throw error;
-    return (data || []).map(i => ({
-      ...i,
-      limit: i.limit_amount || 0,
-      current_total: i.current_total || 0,
-      usage_count: i.usage_count || 0
-    }));
+    const q = query(collection(db, 'ibans'), orderBy('priority', 'desc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(d => {
+       const data = d.data();
+       return {
+         id: d.id,
+         ...data,
+         limit: data.limit_amount || 0,
+         current_total: data.current_total || 0,
+         usage_count: data.usage_count || 0
+       } as Iban;
+    });
   } catch (err) {
     return [];
   }
@@ -497,17 +497,18 @@ export const fetchIbans = async (): Promise<Iban[]> => {
 
 export const addIban = async (iban: Partial<Iban>) => {
   try {
-    const { data, error } = await supabase.from('ibans').insert([{
+    const docRef = await addDoc(collection(db, 'ibans'), {
       bank_name: iban.bank_name,
       account_holder: iban.account_holder,
       iban_number: iban.iban_number,
       limit_amount: iban.limit,
       priority: iban.priority,
       description: iban.description,
-      is_active: true
-    }]).select().single();
-    if (error) throw error;
-    return data;
+      is_active: true,
+      created_at: new Date().toISOString()
+    });
+    const docSnap = await getDoc(docRef);
+    return { id: docRef.id, ...docSnap.data() };
   } catch (err) {
     throw err;
   }
@@ -520,8 +521,7 @@ export const updateIban = async (id: string, updates: Partial<Iban>) => {
       dbUpdates.limit_amount = updates.limit;
       delete dbUpdates.limit;
     }
-    const { error } = await supabase.from('ibans').update(dbUpdates).eq('id', id);
-    if (error) throw error;
+    await updateDoc(doc(db, 'ibans', id), dbUpdates);
   } catch (err) {
     throw err;
   }
@@ -529,18 +529,17 @@ export const updateIban = async (id: string, updates: Partial<Iban>) => {
 
 export const deleteIban = async (id: string) => {
   try {
-    const { error } = await supabase.from('ibans').delete().eq('id', id);
-    if (error) throw error;
+    await deleteDoc(doc(db, 'ibans', id));
   } catch (err) {
     throw err;
   }
 };
 
-export const fetchConnections = async () => {
+export const fetchConnections = async (): Promise<WhatsAppConnection[]> => {
   try {
-    const { data, error } = await supabase.from('whatsapp_connections').select('*').order('created_at', { ascending: false });
-    if (error) throw error;
-    return data || [];
+    const q = query(collection(db, 'whatsapp_connections'), orderBy('created_at', 'desc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as WhatsAppConnection));
   } catch (err) {
     return [];
   }
@@ -548,14 +547,15 @@ export const fetchConnections = async () => {
 
 export const createConnection = async (name: string, representative: string, phone?: string) => {
   try {
-    const { data, error } = await supabase.from('whatsapp_connections').insert([{
+    const docRef = await addDoc(collection(db, 'whatsapp_connections'), {
       name,
       representative_name: representative,
       phone_number: phone,
-      status: 'INITIALIZING'
-    }]).select().single();
-    if (error) throw error;
-    return data;
+      status: 'INITIALIZING',
+      created_at: new Date().toISOString()
+    });
+    const docSnap = await getDoc(docRef);
+    return { id: docRef.id, ...docSnap.data() };
   } catch (err) {
     throw err;
   }
@@ -563,8 +563,7 @@ export const createConnection = async (name: string, representative: string, pho
 
 export const deleteConnection = async (id: string) => {
   try {
-    const { error } = await supabase.from('whatsapp_connections').delete().eq('id', id);
-    if (error) throw error;
+    await deleteDoc(doc(db, 'whatsapp_connections', id));
   } catch (err) {
     throw err;
   }
@@ -572,9 +571,11 @@ export const deleteConnection = async (id: string) => {
 
 export const fetchMessages = async (connectionId: string) => {
   try {
-    const { data, error } = await supabase.from('whatsapp_messages').select('*').eq('connection_id', connectionId).order('created_at', { ascending: true });
-    if (error) throw error;
-    return data || [];
+    const q = query(collection(db, 'whatsapp_messages'), where('connection_id', '==', connectionId));
+    const snapshot = await getDocs(q);
+    const messages = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+    messages.sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    return messages;
   } catch (err) {
     return [];
   }
@@ -582,13 +583,18 @@ export const fetchMessages = async (connectionId: string) => {
 
 export const sendMessageToDb = async (message: Partial<WhatsAppMessage>) => {
   try {
-    const { error } = await supabase.from('whatsapp_messages').insert([message]);
-    if (error) throw error;
+    await addDoc(collection(db, 'whatsapp_messages'), { ...message, created_at: new Date().toISOString() });
   } catch (err) {
     throw err;
   }
 };
 
 export const subscribeToTable = (table: string, onEvent: (payload: any) => void) => {
-  return supabase.channel(`realtime_${table}`).on('postgres_changes', { event: '*', schema: 'public', table: table }, (payload) => onEvent(payload)).subscribe();
+  const q = query(collection(db, table));
+  const unsubscribe = onSnapshot(q, (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+          onEvent({ type: change.type, new: {id: change.doc.id, ...change.doc.data()} });
+      });
+  });
+  return { unsubscribe };
 };
